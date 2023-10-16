@@ -27,19 +27,44 @@
 #' }
 query_sqlite <- function(con, params, tbl, id_field = NA) {
 
-  recordsTotal = get_sqlite_count(con, tbl)
-  recordsFiltered = recordsTotal  # Not implemented
+  n = get_sqlite_count(con, tbl)
   data = get_sqlite_page(con, params, tbl)
-  DT_rows_all = NULL  # Not implemented
-  DT_rows_current = data[[id_field]]
+  
+  q = params
+  if (length(q$columns) != ncol(data)) 
+    return(list(draw = as.integer(q$draw), recordsTotal = n, 
+                recordsFiltered = 0, data = list(), DT_rows_all = seq_len(n), 
+                DT_rows_current = list()))
+  searchable = logical(ncol(data))
+  for (j in seq_len(ncol(data))) {
+    if (q$columns[[j]][["searchable"]] == "true") 
+      searchable[j] = TRUE
+  }
+  global_opts = list(
+    smart = !identical(q$search[["smart"]], "false"),
+    regex = q$search[["regex"]] != "false", 
+    caseInsensitive = q$search[["caseInsensitive"]] == "true")
+  i = seq_len(n)
+  if (length(i) && any((k <- q$search[["value"]]) != "")) {
+    # Obtain all data from SQL for filtering by search
+    data = get_sqlite_page2(con, q, tbl)
+    dg = data[i, searchable, drop = FALSE]
+    i = i[DT::doGlobalSearch(dg, k, options = global_opts)]
+    if (length(i) != n) 
+      data = data[i, , drop = FALSE]
+  }
+  
+  DT_rows_all = i
+  if (!is.na(id_field)) {
+    DT_rows_current = data[[id_field]]
+  } else {
+    DT_rows_current = i
+  }
 
-  list(
-    recordsTotal = recordsTotal,
-    recordsFiltered = recordsFiltered,
-    data = data,
-    DT_rows_all = DT_rows_all,
-    DT_rows_current = DT_rows_current
-  )
+  list(draw = as.integer(q$draw), 
+       recordsTotal = n, recordsFiltered = n, 
+       data = data, 
+       DT_rows_all = DT_rows_all, DT_rows_current = DT_rows_current)
 }
 
 # Get rows from tbl for the visible datatable page
@@ -49,6 +74,11 @@ get_sqlite_page <- function(con, params, tbl) {
                     order_by_clause(params),
                     " LIMIT {params$length} OFFSET {params$start}",
                     .con = con)
+  DBI::dbGetQuery(con, query)
+}
+
+get_sqlite_page2 = function (con, params, tbl) {
+  query <- glue::glue_sql("SELECT * FROM {`tbl`} ", order_by_clause(params), .con = con)
   DBI::dbGetQuery(con, query)
 }
 
