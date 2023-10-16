@@ -27,33 +27,35 @@
 #' }
 query_sqlite <- function(con, params, tbl, id_field = NA) {
 
-  n = get_sqlite_count(con, tbl)
-  data = get_sqlite_page(con, params, tbl)
-  
   q = params
-  if (length(q$columns) != ncol(data)) 
-    return(list(draw = as.integer(q$draw), recordsTotal = n, 
-                recordsFiltered = 0, data = list(), DT_rows_all = seq_len(n), 
-                DT_rows_current = list()))
-  searchable = logical(ncol(data))
-  for (j in seq_len(ncol(data))) {
-    if (q$columns[[j]][["searchable"]] == "true") 
-      searchable[j] = TRUE
-  }
-  global_opts = list(
-    smart = !identical(q$search[["smart"]], "false"),
-    regex = q$search[["regex"]] != "false", 
-    caseInsensitive = q$search[["caseInsensitive"]] == "true")
+  n = get_sqlite_count(con, tbl)
+  data = get_sqlite_page(con, q, tbl)
+
   i = seq_len(n)
   if (length(i) && any((k <- q$search[["value"]]) != "")) {
+    # Set search options
+    if (length(q$columns) != ncol(data))
+      return(list(draw = as.integer(q$draw), recordsTotal = n,
+                  recordsFiltered = 0, data = list(), DT_rows_all = seq_len(n),
+                  DT_rows_current = list()))
+    searchable = logical(ncol(data))
+    for (j in seq_len(ncol(data))) {
+      if (q$columns[[j]][["searchable"]] == "true")
+        searchable[j] = TRUE
+    }
+    global_opts = list(
+      smart = !identical(q$search[["smart"]], "false"),
+      regex = q$search[["regex"]] != "false",
+      caseInsensitive = q$search[["caseInsensitive"]] == "true")
+
     # Obtain all data from SQL for filtering by search
     data = get_sqlite_page2(con, q, tbl)
     dg = data[i, searchable, drop = FALSE]
     i = i[DT::doGlobalSearch(dg, k, options = global_opts)]
-    if (length(i) != n) 
+    if (length(i) != n)
       data = data[i, , drop = FALSE]
   }
-  
+
   DT_rows_all = i
   if (!is.na(id_field)) {
     DT_rows_current = data[[id_field]]
@@ -61,9 +63,9 @@ query_sqlite <- function(con, params, tbl, id_field = NA) {
     DT_rows_current = i
   }
 
-  list(draw = as.integer(q$draw), 
-       recordsTotal = n, recordsFiltered = n, 
-       data = data, 
+  list(draw = as.integer(q$draw),
+       recordsTotal = n, recordsFiltered = n,
+       data = data,
        DT_rows_all = DT_rows_all, DT_rows_current = DT_rows_current)
 }
 
