@@ -35,7 +35,7 @@ query_sqlite <- function(con, params, tbl, id_field = NA) {
   if (length(i) && any((k <- q$search[["value"]]) != "")) {
     # Set search options
     if (length(q$columns) != ncol(data))
-      return(list(draw = as.integer(q$draw), recordsTotal = n,
+      return(list(recordsTotal = n,
                   recordsFiltered = 0, data = list(), DT_rows_all = seq_len(n),
                   DT_rows_current = list()))
     searchable = logical(ncol(data))
@@ -63,8 +63,7 @@ query_sqlite <- function(con, params, tbl, id_field = NA) {
     DT_rows_current = i
   }
 
-  list(draw = as.integer(q$draw),
-       recordsTotal = n, recordsFiltered = n,
+  list(recordsTotal = n, recordsFiltered = n,
        data = data,
        DT_rows_all = DT_rows_all, DT_rows_current = DT_rows_current)
 }
